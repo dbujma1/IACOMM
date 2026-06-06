@@ -4,10 +4,25 @@ import cv2
 import time
 import os
 import pygame_menu
+import pyttsx3
 from detectar_letra import detectar_letra, detectar_letra_con_confianza
 from pathlib import Path
 
 current_dir = Path(__file__).resolve().parent
+
+# ---------------------------------------------------------------------------
+# Inicializar TTS (texto a voz)
+# ---------------------------------------------------------------------------
+tts_engine = pyttsx3.init()
+tts_engine.setProperty('rate', 150)    # velocidad (palabras por minuto)
+tts_engine.setProperty('volume', 1.0)  # volumen 0.0 – 1.0
+
+# Intentar seleccionar una voz en inglés si el sistema tiene varias
+voices = tts_engine.getProperty('voices')
+for v in voices:
+    if 'en' in v.languages or 'english' in v.name.lower():
+        tts_engine.setProperty('voice', v.id)
+        break
 
 # ---------------------------------------------------------------------------
 # Inicializar Pygame
@@ -290,6 +305,8 @@ def juego_escritura():
 
     clock = pygame.time.Clock()
 
+    pygame.mixer.music.pause()          # silenciar música durante Sign Writer
+
     while True:
         dt = clock.tick(30) / 1000.0
 
@@ -389,6 +406,7 @@ def juego_escritura():
 
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
+                    pygame.mixer.music.unpause()    # restaurar música al salir
                     return
                 elif event.key == pygame.K_BACKSPACE:
                     if mensaje:
@@ -398,6 +416,7 @@ def juego_escritura():
                         mensaje.append(' ')
                 elif event.key == pygame.K_RETURN:
                     _mostrar_mensaje_final(mensaje)
+                    pygame.mixer.music.unpause()    # restaurar música al volver al menú
                     return
 
 def _mostrar_mensaje_final(mensaje):
@@ -405,7 +424,6 @@ def _mostrar_mensaje_final(mensaje):
     if not texto:
         texto = "(empty message)"
 
-    sonido_victoria.play()
     screen.fill(LIGHT_PURPLE)
 
     mostrar_texto("Your message:", font_medium, PURPLE, WIDTH // 2, HEIGHT // 2 - 130)
@@ -425,6 +443,14 @@ def _mostrar_mensaje_final(mensaje):
 
     mostrar_texto("Press any key to return to menu", font_small, DARK_GRAY, WIDTH // 2, HEIGHT // 2 + 100)
     pygame.display.flip()
+
+    # ── TTS: leer el mensaje en voz alta en inglés ────────────
+    if texto != "(empty message)":
+        pygame.mixer.music.pause()      # pausa la música de fondo
+        tts_engine.say(texto)
+        tts_engine.runAndWait()         # bloquea hasta terminar de hablar
+        pygame.mixer.music.unpause()    # reanuda la música
+    # ──────────────────────────────────────────────────────────
 
     waiting = True
     while waiting:
